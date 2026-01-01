@@ -45,7 +45,6 @@ EUSERV_PIN = '';
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36"
 
-
 def recognize_and_calculate(captcha_image_url, session):
     print("正在处理验证码...")
     # 方法1：尝试自动识别
@@ -113,34 +112,6 @@ def recognize_and_calculate(captcha_image_url, session):
         return str(result)
     except Exception as e:
         print(f"⚠️  自动识别失败: {e}")
-
-    
-    # # 方法2：手动输入
-    # print("\n" + "="*50)
-    # print("请手动输入验证码")
-    # print("="*50)
-    
-    # # 保存验证码图片
-    # try:
-    #     response = session.get(captcha_image_url)
-    #     captcha_filename = 'captcha.png'
-    #     with open(captcha_filename, 'wb') as f:
-    #         f.write(response.content)
-    #     print(f"✅ 验证码已保存到: {captcha_filename}")
-    #     print(f"   请打开此文件查看验证码")
-    # except Exception as e:
-    #     print(f"⚠️  保存验证码失败: {e}")
-    #     print(f"   请在浏览器访问: {captcha_image_url}")
-    
-    # # 等待用户输入
-    # captcha_code = input("\n请输入验证码（如果是算术题请输入计算结果）: ").strip()
-    
-    # if captcha_code:
-    #     print(f"✅ 您输入的验证码: {captcha_code}")
-    #     return captcha_code
-    # else:
-    #     print("❌ 未输入验证码")
-    #     return None
 
 
 def get_euserv_pin():
@@ -222,6 +193,7 @@ class EUserv:
                 'sess_id': sess_id
             }
             
+            print("提交登录表单...")
             response = self.session.post(url, headers=headers, data=login_data)
             response.raise_for_status()
             
@@ -332,18 +304,11 @@ class EUserv:
                 'choose_order_subaction': 'show_contract_details'
             }
             resp1 = self.session.post(url, headers=headers, data=data)
-            print(f"  状态码: {resp1.status_code}")
+            print(f"  选择订单状态码: {resp1.status_code}")
+            resp1.raise_for_status()
             
             # 获取 token
             print("步骤2: 获取续期 token...")
-            # data = {
-            #     'sess_id': self.sess_id,
-            #     'subaction': 'kc2_security_password_get_token',
-            #     'prefix': 'kc2_customer_contract_details_extend_contract_',
-            #     'type': '1'
-            #     # 'password': self.password
-            # }
-
             #触发发送pin码
             data = {
                 'sess_id': self.sess_id,
@@ -353,16 +318,16 @@ class EUserv:
                 # 'password': self.password
             }
             resp2 = self.session.post(url, headers=headers, data=data)
+            print(f"  发送pin状态码: {resp2.status_code}")
+            print(f"  发送pin响应内容: {resp2.text[:500]}")
             resp2.raise_for_status()
-            print(f"  状态码: {resp2.status_code}")
-            print(f"  响应内容: {resp2.text[:500]}")
             
-            # 邮箱获取pin，此处稍微等10秒，德国佬效率慢，让子弹飞一会
+            # 邮箱获取pin，此处稍微等3秒，德国佬效率慢，让子弹飞一会
             print("步骤2.5: 获取pin码")
             time.sleep(3)
             EUSERV_PIN = get_euserv_pin()
 
-            
+        
             #验证pin，获取token
             data = {
                 'sess_id': self.sess_id,
@@ -376,6 +341,7 @@ class EUserv:
             resp3 = self.session.post(url, headers=headers, data=data)
             print(f"  验证pin状态码: {resp3.status_code}")
             print(f"  验证pin响应: {resp3.text}")
+            resp3.raise_for_status()
 
             result = json.loads(resp3.text)
             print(f"  解析结果: {result}")
@@ -400,7 +366,8 @@ class EUserv:
             }
       
             resp4 = self.session.post(url, headers=headers, data=data)
-            print(f"  状态码: {resp4.status_code}")
+            print(f"  提交续期状态码: {resp4.status_code}")
+            resp4.raise_for_status()
             time.sleep(3)
             
             print(f"✅ 服务器 {order_id} 续期成功")
@@ -408,7 +375,6 @@ class EUserv:
             
         except json.JSONDecodeError as e:
             print(f"❌ JSON 解析失败: {e}")
-            print(f"   原始响应: {resp2.text[:1000]}")
             return False
         except Exception as e:
             print(f"❌ 服务器 {order_id} 续期失败: {e}")
